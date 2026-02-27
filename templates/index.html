@@ -3,18 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>PaperBrief — Research Feeds</title>
-  <!-- PWA -->
-  <link rel="manifest" href="/static/manifest.json">
-  <meta name="theme-color" content="#6c63ff">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>HealEd — Medical Research, Plain English</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: #0f0f0f;
+      background: #0d1117;
       color: #e8e8e8;
       min-height: 100vh;
       display: flex;
@@ -29,17 +24,153 @@
     }
 
     header h1 {
-      font-size: 1.8rem;
+      font-size: 2rem;
       letter-spacing: -0.5px;
       margin-bottom: 6px;
+      color: #fff;
     }
 
+    header h1 span { color: #34d399; }
+
     header .tagline {
-      color: #888;
+      color: #666;
       font-size: 0.9rem;
     }
 
-    /* Tabs */
+    /* ── Report Analyzer ──────────────────────────────────────────────────── */
+    .report-section {
+      width: 100%;
+      max-width: 700px;
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 14px;
+      padding: 20px 24px;
+      margin-bottom: 28px;
+    }
+
+    .report-section-title {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #34d399;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+
+    .mock-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .mock-pill {
+      padding: 5px 14px;
+      border-radius: 999px;
+      border: 1px solid #30363d;
+      background: transparent;
+      color: #aaa;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .mock-pill:hover, .mock-pill.active {
+      border-color: #34d399;
+      color: #34d399;
+      background: #34d39911;
+    }
+
+    .report-textarea {
+      width: 100%;
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      color: #e8e8e8;
+      font-size: 0.88rem;
+      padding: 12px 14px;
+      resize: vertical;
+      min-height: 90px;
+      outline: none;
+      font-family: inherit;
+      line-height: 1.6;
+      transition: border-color 0.15s;
+      margin-bottom: 10px;
+    }
+
+    .report-textarea:focus { border-color: #34d399; }
+    .report-textarea::placeholder { color: #444; }
+
+    .analyze-btn {
+      padding: 9px 22px;
+      background: #34d399;
+      color: #0d1117;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.88rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .analyze-btn:hover { background: #2ec48e; }
+    .analyze-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .report-result {
+      margin-top: 16px;
+      display: none;
+    }
+
+    .report-result.visible { display: block; }
+
+    .result-block {
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 10px;
+      padding: 14px 16px;
+      margin-bottom: 10px;
+    }
+
+    .result-block-label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #34d399;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .result-block p {
+      font-size: 0.88rem;
+      color: #ccc;
+      line-height: 1.6;
+    }
+
+    .result-list {
+      list-style: none;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .result-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      font-size: 0.88rem;
+      color: #ccc;
+      line-height: 1.5;
+    }
+
+    .result-list li::before {
+      content: "→";
+      color: #34d399;
+      font-weight: bold;
+      flex-shrink: 0;
+    }
+
+    /* ── Tabs ──────────────────────────────────────────────────────────────── */
     .tabs {
       display: flex;
       gap: 8px;
@@ -53,7 +184,7 @@
     .tab-btn {
       padding: 7px 16px;
       border-radius: 999px;
-      border: 1px solid #333;
+      border: 1px solid #30363d;
       background: transparent;
       color: #aaa;
       font-size: 0.85rem;
@@ -62,12 +193,12 @@
       font-weight: 500;
     }
 
-    .tab-btn:hover { border-color: #6c63ff; color: #e8e8e8; }
-    .tab-btn.active { background: #6c63ff; border-color: #6c63ff; color: #fff; }
+    .tab-btn:hover { border-color: #34d399; color: #e8e8e8; }
+    .tab-btn.active { background: #34d399; border-color: #34d399; color: #0d1117; font-weight: 700; }
     .tab-btn.saved-tab { border-color: #f0c04033; color: #f0c040aa; }
     .tab-btn.saved-tab.active { background: #f0c04022; border-color: #f0c040; color: #f0c040; }
 
-    /* Search */
+    /* ── Search ────────────────────────────────────────────────────────────── */
     .search-wrap {
       width: 100%;
       max-width: 700px;
@@ -77,8 +208,8 @@
     .search-input {
       width: 100%;
       padding: 10px 16px;
-      background: #1a1a1a;
-      border: 1px solid #2a2a2a;
+      background: #161b22;
+      border: 1px solid #30363d;
       border-radius: 8px;
       color: #e8e8e8;
       font-size: 0.9rem;
@@ -87,15 +218,15 @@
     }
 
     .search-input::placeholder { color: #444; }
-    .search-input:focus { border-color: #6c63ff; }
+    .search-input:focus { border-color: #34d399; }
 
-    /* Feed */
+    /* ── Feed ──────────────────────────────────────────────────────────────── */
     #feed { width: 100%; max-width: 700px; }
 
     /* Skeleton */
     .skeleton-card {
-      background: #1a1a1a;
-      border: 1px solid #2a2a2a;
+      background: #161b22;
+      border: 1px solid #30363d;
       border-radius: 12px;
       padding: 20px 24px;
       margin-bottom: 16px;
@@ -103,7 +234,7 @@
     }
 
     .skel-line {
-      background: #2a2a2a;
+      background: #21262d;
       border-radius: 4px;
       height: 12px;
       margin-bottom: 10px;
@@ -120,8 +251,8 @@
 
     /* Paper cards */
     .paper-card {
-      background: #1a1a1a;
-      border: 1px solid #2a2a2a;
+      background: #161b22;
+      border: 1px solid #30363d;
       border-radius: 12px;
       margin-bottom: 16px;
       cursor: pointer;
@@ -130,7 +261,7 @@
     }
 
     .paper-card:hover { border-color: #444; }
-    .paper-card.expanded { border-color: #6c63ff44; }
+    .paper-card.expanded { border-color: #34d39944; }
 
     .card-main {
       padding: 20px 20px 14px;
@@ -149,9 +280,9 @@
     }
 
     .badge {
-      background: #6c63ff22;
-      color: #a89fff;
-      border: 1px solid #6c63ff44;
+      background: #34d39922;
+      color: #34d399;
+      border: 1px solid #34d39944;
       border-radius: 999px;
       padding: 2px 10px;
       font-size: 0.72rem;
@@ -172,7 +303,7 @@
 
     .card-authors {
       font-size: 0.78rem;
-      color: #666;
+      color: #555;
       margin-bottom: 10px;
     }
 
@@ -209,7 +340,7 @@
     }
 
     .paper-card.expanded .card-arrow {
-      color: #6c63ff;
+      color: #34d399;
       transform: rotate(90deg);
     }
 
@@ -217,8 +348,8 @@
     .card-expand {
       display: none;
       padding: 16px 24px 20px;
-      border-top: 1px solid #222;
-      background: #1e1e1e;
+      border-top: 1px solid #21262d;
+      background: #161b22;
     }
 
     .paper-card.expanded .card-expand { display: block; }
@@ -227,120 +358,123 @@
       font-size: 0.72rem;
       text-transform: uppercase;
       letter-spacing: 1px;
-      color: #555;
+      color: #444;
       margin-bottom: 10px;
       font-weight: 600;
     }
 
-    .abstract-text {
-      font-size: 0.85rem;
-      color: #aaa;
-      line-height: 1.7;
-      font-family: "SF Mono", "Fira Mono", "Consolas", monospace;
-      margin-bottom: 16px;
-    }
-
-    /* Prerequisites — inside expanded dropdown */
-    .prereq-section {
-      background: #0d0d0d;
-      border: 1px solid #2a2a2a;
-      border-left: 3px solid #f0c040;
+    /* Treatment plan box */
+    .treatment-section {
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-left: 3px solid #34d399;
       border-radius: 8px;
       padding: 14px 16px;
-      margin-bottom: 16px;
+      margin-bottom: 12px;
     }
 
-    .prereq-heading {
+    .treatment-heading {
       font-size: 0.72rem;
       text-transform: uppercase;
       letter-spacing: 1px;
       font-weight: 700;
-      color: #f0c040;
+      color: #34d399;
+      margin-bottom: 10px;
+    }
+
+    .treatment-text {
+      font-size: 0.88rem;
+      color: #ccc;
+      line-height: 1.6;
+    }
+
+    /* Doctor questions box */
+    .questions-section {
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-left: 3px solid #60a5fa;
+      border-radius: 8px;
+      padding: 14px 16px;
       margin-bottom: 12px;
     }
 
-    .prereq-list {
-      list-style: none;
-      padding: 0;
-      margin: 0;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
+    .questions-heading {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-weight: 700;
+      color: #60a5fa;
+      margin-bottom: 10px;
     }
 
-    .prereq-list li {
+    .questions-list {
+      list-style: none;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .questions-list li {
       display: flex;
       align-items: flex-start;
       gap: 10px;
       font-size: 0.88rem;
-      color: #ddd;
-      line-height: 1.55;
+      color: #ccc;
+      line-height: 1.5;
     }
 
-    .prereq-list li::before {
-      content: "→";
-      color: #f0c040;
+    .questions-list li::before {
+      content: "?";
+      color: #60a5fa;
       font-weight: bold;
       flex-shrink: 0;
-      margin-top: 1px;
     }
 
-    .prereq-loading {
+    .analysis-loading {
       display: flex;
       align-items: center;
       gap: 8px;
       font-size: 0.82rem;
-      color: #666;
+      color: #555;
       font-style: italic;
+      padding: 10px 0;
     }
 
-    .prereq-spinner {
+    .spinner {
       width: 12px;
       height: 12px;
       border: 2px solid #333;
-      border-top-color: #f0c040;
+      border-top-color: #34d399;
       border-radius: 50%;
       animation: spin 0.7s linear infinite;
       flex-shrink: 0;
     }
 
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
+    @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* Expand trigger row */
-    .card-expand-trigger {
-      display: flex;
-      align-items: center;
-      justify-content: flex-end;
-      gap: 6px;
-      padding: 10px 20px 14px;
-      cursor: pointer;
+    .abstract-text {
+      font-size: 0.85rem;
+      color: #666;
+      line-height: 1.7;
+      margin-bottom: 16px;
     }
-
-    .expand-hint {
-      font-size: 0.78rem;
-      color: #555;
-    }
-
-    .paper-card.expanded .expand-hint { color: #6c63ff; }
-    .paper-card.expanded .card-arrow { color: #6c63ff; transform: rotate(90deg); }
 
     .open-btn {
       display: inline-flex;
       align-items: center;
       gap: 6px;
       padding: 8px 18px;
-      background: #6c63ff;
-      color: #fff;
+      background: #34d399;
+      color: #0d1117;
       border-radius: 8px;
       font-size: 0.85rem;
-      font-weight: 600;
+      font-weight: 700;
       text-decoration: none;
       transition: background 0.15s;
     }
 
-    .open-btn:hover { background: #574fd6; }
+    .open-btn:hover { background: #2ec48e; }
 
     /* Load more */
     #load-more-wrap {
@@ -352,7 +486,7 @@
     #load-more-btn {
       padding: 11px 32px;
       background: transparent;
-      border: 1px solid #333;
+      border: 1px solid #30363d;
       border-radius: 8px;
       color: #aaa;
       font-size: 0.9rem;
@@ -361,10 +495,9 @@
       font-weight: 500;
     }
 
-    #load-more-btn:hover { border-color: #6c63ff; color: #e8e8e8; }
+    #load-more-btn:hover { border-color: #34d399; color: #e8e8e8; }
     #load-more-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
-    /* Misc */
     .error-msg {
       color: #ff6b6b;
       background: #1a1111;
@@ -382,22 +515,70 @@
       font-size: 0.9rem;
       padding: 40px 20px;
     }
+
+    .disclaimer {
+      font-size: 0.72rem;
+      color: #444;
+      text-align: center;
+      max-width: 700px;
+      margin-bottom: 20px;
+      line-height: 1.5;
+    }
   </style>
 </head>
 <body>
 
   <header>
-    <h1>PaperBrief</h1>
-    <p class="tagline">Recent arXiv papers, explained in plain English.</p>
+    <h1>Heal<span>Ed</span></h1>
+    <p class="tagline">Medical research, explained for real people.</p>
   </header>
 
+  <p class="disclaimer">⚠ HealEd is for educational purposes only. Always consult your doctor before making any medical decisions.</p>
+
+  <!-- ── Report Analyzer ───────────────────────────────────────────────────── -->
+  <div class="report-section">
+    <div class="report-section-title">🩺 Understand Your Medical Report</div>
+
+    <div class="mock-pills">
+      <span style="font-size:0.78rem;color:#555;align-self:center;margin-right:4px;">Try an example:</span>
+      <button class="mock-pill" data-mock="0">Diabetes</button>
+      <button class="mock-pill" data-mock="1">Heart & BP</button>
+      <button class="mock-pill" data-mock="2">Anxiety & Depression</button>
+    </div>
+
+    <textarea
+      id="report-input"
+      class="report-textarea"
+      placeholder="Paste your medical report or doctor's notes here…"
+    ></textarea>
+
+    <button class="analyze-btn" id="analyze-report-btn" onclick="analyzeReport()">
+      Explain My Report
+    </button>
+
+    <div class="report-result" id="report-result">
+      <div class="result-block">
+        <div class="result-block-label">📋 What this means</div>
+        <p id="report-explanation"></p>
+      </div>
+      <div class="result-block">
+        <div class="result-block-label">⚠ Things to focus on</div>
+        <ul class="result-list" id="report-focus"></ul>
+      </div>
+      <div class="result-block">
+        <div class="result-block-label">💬 Ask your doctor</div>
+        <ul class="result-list" id="report-questions"></ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Research Feed ──────────────────────────────────────────────────────── -->
   <div class="tabs" id="tabs">
-    <button class="tab-btn active" data-cat="cs.AI">AI</button>
-    <button class="tab-btn" data-cat="cs.LG">Machine Learning</button>
-    <button class="tab-btn" data-cat="cs.CL">NLP</button>
-    <button class="tab-btn" data-cat="cs.CV">Computer Vision</button>
-    <button class="tab-btn" data-cat="math.ST">Statistics</button>
-    <button class="tab-btn" data-cat="math.NA">Numerical Analysis</button>
+    <button class="tab-btn active" data-cat="q-bio.QM">General Medicine</button>
+    <button class="tab-btn" data-cat="q-bio.GN">Genetics</button>
+    <button class="tab-btn" data-cat="q-bio.NC">Neuroscience</button>
+    <button class="tab-btn" data-cat="q-bio.TO">Tissue & Organs</button>
+    <button class="tab-btn" data-cat="q-bio.CB">Cell Biology</button>
     <button class="tab-btn saved-tab" data-cat="__saved__">Saved ★</button>
   </div>
 
@@ -406,7 +587,7 @@
       type="search"
       id="search-input"
       class="search-input"
-      placeholder="Filter by title, author, or summary…"
+      placeholder="Search papers…"
       autocomplete="off"
       spellcheck="false"
     />
@@ -421,95 +602,114 @@
   </div>
 
   <script>
-    // ─── State ────────────────────────────────────────────────────────────────
-    let currentCategory = "cs.AI";
+    // ── Mock reports ──────────────────────────────────────────────────────────
+    const MOCK_REPORTS = [
+      "Patient: 54yo female. HbA1c: 8.2%. Fasting glucose: 178 mg/dL. BMI: 31. Currently on Metformin 1000mg twice daily. Mild peripheral neuropathy noted. Kidney function normal. BP: 138/88.",
+      "Patient: 62yo male. BP: 158/96 mmHg. LDL: 142 mg/dL. HDL: 38 mg/dL. EF: 52%. On Lisinopril 10mg, Atorvastatin 40mg. No chest pain. Mild shortness of breath on exertion.",
+      "Patient: 29yo female. PHQ-9 score: 14 (moderate depression). GAD-7 score: 12 (moderate anxiety). Sleep: 4-5 hrs/night. Currently not on medication. No suicidal ideation. Seeking therapy options."
+    ];
+
+    document.querySelectorAll(".mock-pill").forEach(pill => {
+      pill.addEventListener("click", () => {
+        document.querySelectorAll(".mock-pill").forEach(p => p.classList.remove("active"));
+        pill.classList.add("active");
+        document.getElementById("report-input").value = MOCK_REPORTS[parseInt(pill.dataset.mock)];
+        document.getElementById("report-result").classList.remove("visible");
+      });
+    });
+
+    // ── Report analyzer ───────────────────────────────────────────────────────
+    async function analyzeReport() {
+      const report = document.getElementById("report-input").value.trim();
+      if (!report) return;
+
+      const btn = document.getElementById("analyze-report-btn");
+      btn.disabled = true;
+      btn.textContent = "Analyzing…";
+      document.getElementById("report-result").classList.remove("visible");
+
+      try {
+        const res = await fetch("/api/report", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ report })
+        });
+        const data = await res.json();
+
+        document.getElementById("report-explanation").textContent = data.plain_explanation || "Could not generate explanation.";
+
+        const focusList = document.getElementById("report-focus");
+        focusList.innerHTML = (data.focus_points || []).map(p => `<li>${escHtml(p)}</li>`).join("");
+
+        const qList = document.getElementById("report-questions");
+        qList.innerHTML = (data.questions_for_doctor || []).map(q => `<li>${escHtml(q)}</li>`).join("");
+
+        document.getElementById("report-result").classList.add("visible");
+      } catch (e) {
+        alert("Failed to analyze report. Please try again.");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Explain My Report";
+      }
+    }
+
+    // ── State ─────────────────────────────────────────────────────────────────
+    let currentCategory = "q-bio.QM";
     let currentStart = 0;
     let loading = false;
 
-    // ─── Favorites (localStorage) ────────────────────────────────────────────
-    const FAV_KEY = "paperbrief_favorites";
+    // ── Favorites ─────────────────────────────────────────────────────────────
+    const FAV_KEY = "healed_favorites";
+    function getFavorites() { try { return JSON.parse(localStorage.getItem(FAV_KEY) || "{}"); } catch { return {}; } }
+    function saveFavorite(paper) { const f = getFavorites(); f[paper.id] = paper; try { localStorage.setItem(FAV_KEY, JSON.stringify(f)); } catch {} }
+    function removeFavorite(id) { const f = getFavorites(); delete f[id]; try { localStorage.setItem(FAV_KEY, JSON.stringify(f)); } catch {} }
+    function isFavorite(id) { return !!getFavorites()[id]; }
 
-    function getFavorites() {
-      try { return JSON.parse(localStorage.getItem(FAV_KEY) || "{}"); }
-      catch { return {}; }
-    }
-
-    function saveFavorite(paper) {
-      const favs = getFavorites();
-      favs[paper.id] = paper;
-      try { localStorage.setItem(FAV_KEY, JSON.stringify(favs)); } catch {}
-    }
-
-    function removeFavorite(paperId) {
-      const favs = getFavorites();
-      delete favs[paperId];
-      try { localStorage.setItem(FAV_KEY, JSON.stringify(favs)); } catch {}
-    }
-
-    function isFavorite(paperId) {
-      return !!getFavorites()[paperId];
-    }
-
-    // ─── Helpers ──────────────────────────────────────────────────────────────
-    function formatAuthors(authors) {
-      if (!authors || authors.length === 0) return "";
-      return authors.length === 1 ? authors[0] : authors[0] + " et al.";
-    }
-
+    // ── Helpers ───────────────────────────────────────────────────────────────
+    function formatAuthors(a) { return !a || a.length === 0 ? "" : a.length === 1 ? a[0] : a[0] + " et al."; }
     function formatDate(iso) {
       if (!iso) return "";
       const [year, month] = iso.split("-");
       const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
       return (months[parseInt(month) - 1] || month) + " " + year;
     }
-
     function escHtml(str) {
       return String(str ?? "")
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;");
+        .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
     }
-
     function reapplySearch() {
-      const query = (document.getElementById("search-input")?.value || "").trim().toLowerCase();
-      if (!query) return;
+      const q = (document.getElementById("search-input")?.value || "").trim().toLowerCase();
+      if (!q) return;
       document.querySelectorAll(".paper-card").forEach(card => {
-        const title   = (card.querySelector(".card-title")?.textContent   || "").toLowerCase();
-        const authors = (card.querySelector(".card-authors")?.textContent || "").toLowerCase();
-        const summary = (card.querySelector(".card-summary")?.textContent || "").toLowerCase();
-        card.style.display =
-          title.includes(query) || authors.includes(query) || summary.includes(query) ? "" : "none";
+        const t = (card.querySelector(".card-title")?.textContent || "").toLowerCase();
+        const s = (card.querySelector(".card-summary")?.textContent || "").toLowerCase();
+        card.style.display = t.includes(q) || s.includes(q) ? "" : "none";
       });
     }
 
-    // ─── Skeleton ─────────────────────────────────────────────────────────────
+    // ── Skeletons ─────────────────────────────────────────────────────────────
     function renderSkeletons(n = 3) {
       const feed = document.getElementById("feed");
       let html = `<div class="error-msg" id="error-msg"></div>`;
       for (let i = 0; i < n; i++) {
-        html += `
-          <div class="skeleton-card">
-            <div class="skel-line short"></div>
-            <div class="skel-line medium" style="height:14px;margin-bottom:12px"></div>
-            <div class="skel-line full"></div>
-            <div class="skel-line full"></div>
-            <div class="skel-line medium"></div>
-          </div>`;
+        html += `<div class="skeleton-card">
+          <div class="skel-line short"></div>
+          <div class="skel-line medium" style="height:14px;margin-bottom:12px"></div>
+          <div class="skel-line full"></div>
+          <div class="skel-line full"></div>
+          <div class="skel-line medium"></div>
+        </div>`;
       }
       feed.innerHTML = html;
     }
 
-    // ─── Render cards ─────────────────────────────────────────────────────────
+    // ── Render cards ──────────────────────────────────────────────────────────
     function renderCards(papers, append = false) {
       const feed = document.getElementById("feed");
-      if (!append) {
-        feed.innerHTML = `<div class="error-msg" id="error-msg"></div>`;
-      }
+      if (!append) feed.innerHTML = `<div class="error-msg" id="error-msg"></div>`;
 
-      papers.forEach((paper) => {
+      papers.forEach(paper => {
         const starred = isFavorite(paper.id);
-
         const card = document.createElement("div");
         card.className = "paper-card";
 
@@ -517,37 +717,38 @@
           <div class="card-main">
             <div class="card-body">
               <div class="card-meta">
-                <span class="badge">${escHtml(paper.category_label || "")}</span>
+                <span class="badge">${escHtml(paper.category_label || "Medicine")}</span>
                 <span class="card-date">${formatDate(paper.published)}</span>
               </div>
               <div class="card-title">${escHtml(paper.title)}</div>
               <div class="card-authors">${escHtml(formatAuthors(paper.authors))}</div>
               <div class="card-summary">${escHtml(paper.summary)}</div>
             </div>
-            <button class="star-btn ${starred ? "starred" : ""}"
-                    aria-label="${starred ? "Remove from saved" : "Save paper"}">
+            <button class="star-btn ${starred ? "starred" : ""}" aria-label="Save">
               ${starred ? "★" : "☆"}
             </button>
             <div class="card-arrow">›</div>
           </div>
           <div class="card-expand">
-            <div class="prereq-section">
-              <div class="prereq-heading">⚠ What you need to know first</div>
-              <div class="prereq-loading">
-                <span class="prereq-spinner"></span>
-                Analysing what the author assumes you know…
+            <div class="treatment-section">
+              <div class="treatment-heading">💊 Treatment Plan (Plain English)</div>
+              <div class="analysis-loading">
+                <span class="spinner"></span> Loading treatment info…
               </div>
             </div>
-            <div class="expand-label" style="margin-top:18px">Full Abstract</div>
+            <div class="questions-section" style="display:none">
+              <div class="questions-heading">💬 Ask Your Doctor</div>
+              <ul class="questions-list"></ul>
+            </div>
+            <div class="expand-label" style="margin-top:16px">Full Abstract</div>
             <div class="abstract-text">${escHtml(paper.abstract)}</div>
             <a class="open-btn" href="${escHtml(paper.arxiv_url)}" target="_blank" rel="noopener">
-              Open on arXiv ↗
+              Read Full Paper ↗
             </a>
           </div>`;
 
-
-        // ── click handler ──
-        card.addEventListener("click", (e) => {
+        // click handler
+        card.addEventListener("click", e => {
           if (e.target.closest("a")) return;
 
           const starBtn = e.target.closest(".star-btn");
@@ -557,18 +758,15 @@
               removeFavorite(paper.id);
               starBtn.textContent = "☆";
               starBtn.classList.remove("starred");
-              starBtn.setAttribute("aria-label", "Save paper");
               if (currentCategory === "__saved__") {
                 card.remove();
-                if (!document.querySelector(".paper-card")) {
-                  feed.innerHTML += `<p class="no-results">No saved papers yet. Star a paper to save it here.</p>`;
-                }
+                if (!document.querySelector(".paper-card"))
+                  feed.innerHTML += `<p class="no-results">No saved papers yet.</p>`;
               }
             } else {
               saveFavorite(paper);
               starBtn.textContent = "★";
               starBtn.classList.add("starred");
-              starBtn.setAttribute("aria-label", "Remove from saved");
             }
             return;
           }
@@ -576,38 +774,39 @@
           const wasExpanded = card.classList.contains("expanded");
           card.classList.toggle("expanded");
 
-          // First open: fetch prerequisites immediately
-          if (!wasExpanded && !card._prereqLoaded) {
-            card._prereqLoaded = true;
-            const prereqSection = card.querySelector(".prereq-section");
-            fetch("/api/prerequisites", {
+          if (!wasExpanded && !card._analysisLoaded) {
+            card._analysisLoaded = true;
+            const treatmentSection = card.querySelector(".treatment-section");
+            const questionsSection = card.querySelector(".questions-section");
+
+            fetch("/api/analyze", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ id: paper.id, abstract: paper.abstract })
             })
-              .then(r => r.json())
-              .then(data => {
-                const prereqs = data.prerequisites || [];
-                const box = card.querySelector(".prereq-section");
-                if (!box) return;
-                if (prereqs.length > 0) {
-                  box.innerHTML = `
-                    <div class="prereq-heading">⚠ What you need to know first</div>
-                    <ul class="prereq-list">
-                      ${prereqs.map(p => `<li>${escHtml(p)}</li>`).join("")}
-                    </ul>`;
-                } else {
-                  box.innerHTML = `
-                    <div class="prereq-heading">⚠ What you need to know first</div>
-                    <p style="font-size:0.82rem;color:#666;margin-top:6px">Could not extract prerequisites for this paper.</p>`;
-                }
-              })
-              .catch(() => {
-                const box = card.querySelector(".prereq-section");
-                if (box) box.innerHTML = `
-                  <div class="prereq-heading">⚠ What you need to know first</div>
-                  <p style="font-size:0.82rem;color:#666;margin-top:6px">Failed to load — try clicking again.</p>`;
-              });
+            .then(r => r.json())
+            .then(data => {
+              if (data.treatment_plan) {
+                treatmentSection.innerHTML = `
+                  <div class="treatment-heading">💊 Treatment Plan (Plain English)</div>
+                  <div class="treatment-text">${escHtml(data.treatment_plan)}</div>`;
+              } else {
+                treatmentSection.innerHTML = `
+                  <div class="treatment-heading">💊 Treatment Plan (Plain English)</div>
+                  <div class="treatment-text" style="color:#555">No specific treatment info found for this paper.</div>`;
+              }
+
+              if (data.questions_for_doctor && data.questions_for_doctor.length > 0) {
+                questionsSection.style.display = "";
+                questionsSection.querySelector(".questions-list").innerHTML =
+                  data.questions_for_doctor.map(q => `<li>${escHtml(q)}</li>`).join("");
+              }
+            })
+            .catch(() => {
+              treatmentSection.innerHTML = `
+                <div class="treatment-heading">💊 Treatment Plan (Plain English)</div>
+                <div class="treatment-text" style="color:#555">Failed to load — try clicking again.</div>`;
+            });
           }
         });
 
@@ -616,18 +815,14 @@
 
       document.getElementById("load-more-wrap").style.display =
         currentCategory === "__saved__" ? "none" : "block";
-
-      // Re-apply any active search filter to newly added cards
       reapplySearch();
-
     }
 
-    // ─── Saved tab ────────────────────────────────────────────────────────────
+    // ── Saved tab ─────────────────────────────────────────────────────────────
     function renderSaved() {
       const feed = document.getElementById("feed");
       feed.innerHTML = `<div class="error-msg" id="error-msg"></div>`;
       document.getElementById("load-more-wrap").style.display = "none";
-
       const papers = Object.values(getFavorites());
       if (papers.length === 0) {
         feed.innerHTML += `<p class="no-results">No saved papers yet. Star a paper to save it here.</p>`;
@@ -636,16 +831,13 @@
       renderCards(papers, true);
     }
 
-    // ─── Load feed ────────────────────────────────────────────────────────────
+    // ── Load feed ─────────────────────────────────────────────────────────────
     async function loadFeed(category, start = 0, append = false) {
       if (loading) return;
       loading = true;
-
       if (!append) renderSkeletons(3);
-
-      const loadMoreBtn = document.getElementById("load-more-btn");
-      if (loadMoreBtn) loadMoreBtn.disabled = true;
-
+      const btn = document.getElementById("load-more-btn");
+      if (btn) btn.disabled = true;
       try {
         const res = await fetch(`/api/feed?category=${encodeURIComponent(category)}&start=${start}`);
         if (!res.ok) throw new Error(`Server error ${res.status}`);
@@ -656,67 +848,45 @@
       } catch (err) {
         if (!append) {
           document.getElementById("feed").innerHTML =
-            `<div class="error-msg" id="error-msg" style="display:block">${escHtml(err.message)}</div>`;
-        } else {
-          const el = document.getElementById("error-msg");
-          if (el) { el.textContent = err.message; el.style.display = "block"; }
+            `<div class="error-msg" style="display:block">${escHtml(err.message)}</div>`;
         }
       } finally {
         loading = false;
-        const btn = document.getElementById("load-more-btn");
         if (btn) btn.disabled = false;
       }
     }
 
     function loadMore() {
-      if (currentCategory === "__saved__") return;
-      loadFeed(currentCategory, currentStart, true);
+      if (currentCategory !== "__saved__") loadFeed(currentCategory, currentStart, true);
     }
 
-    // ─── Tab switching ────────────────────────────────────────────────────────
-    document.getElementById("tabs").addEventListener("click", (e) => {
+    // ── Tab switching ─────────────────────────────────────────────────────────
+    document.getElementById("tabs").addEventListener("click", e => {
       const btn = e.target.closest(".tab-btn");
       if (!btn) return;
-
       document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
-
-      // Clear search
-      const searchInput = document.getElementById("search-input");
-      if (searchInput) {
-        searchInput.value = "";
-        document.querySelectorAll(".paper-card").forEach(c => c.style.display = "");
-      }
-
-      const cat = btn.dataset.cat;
-      currentCategory = cat;
+      document.getElementById("search-input").value = "";
+      document.querySelectorAll(".paper-card").forEach(c => c.style.display = "");
+      currentCategory = btn.dataset.cat;
       currentStart = 0;
-
-      if (cat === "__saved__") {
-        renderSaved();
-        return;
-      }
-
-      loadFeed(cat, 0, false);
+      if (currentCategory === "__saved__") { renderSaved(); return; }
+      loadFeed(currentCategory, 0, false);
     });
 
-    // ─── Search ───────────────────────────────────────────────────────────────
-    document.getElementById("search-input").addEventListener("input", (e) => {
-      const query = e.target.value.trim().toLowerCase();
-      const cards = document.querySelectorAll(".paper-card");
-      let visibleCount = 0;
-
-      cards.forEach(card => {
-        const title   = (card.querySelector(".card-title")?.textContent   || "").toLowerCase();
-        const authors = (card.querySelector(".card-authors")?.textContent || "").toLowerCase();
-        const summary = (card.querySelector(".card-summary")?.textContent || "").toLowerCase();
-        const matches = !query || title.includes(query) || authors.includes(query) || summary.includes(query);
-        card.style.display = matches ? "" : "none";
-        if (matches) visibleCount++;
+    // ── Search ────────────────────────────────────────────────────────────────
+    document.getElementById("search-input").addEventListener("input", e => {
+      const q = e.target.value.trim().toLowerCase();
+      let visible = 0;
+      document.querySelectorAll(".paper-card").forEach(card => {
+        const t = (card.querySelector(".card-title")?.textContent || "").toLowerCase();
+        const s = (card.querySelector(".card-summary")?.textContent || "").toLowerCase();
+        const show = !q || t.includes(q) || s.includes(q);
+        card.style.display = show ? "" : "none";
+        if (show) visible++;
       });
-
       let noResults = document.getElementById("search-no-results");
-      if (visibleCount === 0 && query) {
+      if (visible === 0 && q) {
         if (!noResults) {
           noResults = document.createElement("p");
           noResults.id = "search-no-results";
@@ -725,23 +895,11 @@
           document.getElementById("feed").appendChild(noResults);
         }
         noResults.style.display = "";
-      } else if (noResults) {
-        noResults.style.display = "none";
-      }
+      } else if (noResults) noResults.style.display = "none";
     });
 
-    // ─── PWA: register service worker ─────────────────────────────────────────
-    if ("serviceWorker" in navigator) {
-      window.addEventListener("load", () => {
-        navigator.serviceWorker.register("/sw.js")
-          .then(reg => console.log("SW registered:", reg.scope))
-          .catch(err => console.warn("SW registration failed:", err));
-      });
-    }
-
-    // ─── Initial load ─────────────────────────────────────────────────────────
+    // ── Initial load ──────────────────────────────────────────────────────────
     loadFeed(currentCategory, 0, false);
   </script>
-
 </body>
 </html>
