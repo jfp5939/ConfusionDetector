@@ -118,11 +118,7 @@
     .analyze-btn:hover { background: #2ec48e; }
     .analyze-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
-    .report-result {
-      margin-top: 16px;
-      display: none;
-    }
-
+    .report-result { margin-top: 16px; display: none; }
     .report-result.visible { display: block; }
 
     .result-block {
@@ -142,11 +138,7 @@
       margin-bottom: 8px;
     }
 
-    .result-block p {
-      font-size: 0.88rem;
-      color: #ccc;
-      line-height: 1.6;
-    }
+    .result-block p { font-size: 0.88rem; color: #ccc; line-height: 1.6; }
 
     .result-list {
       list-style: none;
@@ -165,12 +157,22 @@
       line-height: 1.5;
     }
 
-    .result-list li::before {
-      content: "→";
-      color: #34d399;
-      font-weight: bold;
-      flex-shrink: 0;
+    .result-list li::before { content: "→"; color: #34d399; font-weight: bold; flex-shrink: 0; }
+
+    .report-error {
+      display: none;
+      margin-top: 12px;
+      background: #1a1108;
+      border: 1px solid #f0504066;
+      border-left: 3px solid #f05040;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 0.85rem;
+      color: #f08070;
+      line-height: 1.5;
     }
+
+    .report-error.visible { display: block; }
 
     /* ── Tabs ──────────────────────────────────────────────────────────────── */
     .tabs {
@@ -554,21 +556,6 @@
       color: #ffd080;
     }
 
-    /* ── Inline report error ────────────────────────────────────────────────── */
-    .report-error {
-      display: none;
-      margin-top: 12px;
-      background: #1a1108;
-      border: 1px solid #f0504066;
-      border-left: 3px solid #f05040;
-      border-radius: 8px;
-      padding: 10px 14px;
-      font-size: 0.85rem;
-      color: #f08070;
-      line-height: 1.5;
-    }
-
-    .report-error.visible { display: block; }
   </style>
 </head>
 <body>
@@ -579,10 +566,10 @@
   </header>
 
   <div class="api-banner" id="api-banner">
-    ⚠ <strong>AI features are offline.</strong> The server's <code>OPENAI_API_KEY</code> is not set.
-    Run <code>export OPENAI_API_KEY='sk-...'</code> in your terminal before starting the app,
-    then restart with <code>python3 app.py</code>. Research papers will still load, but
-    report analysis and treatment plans will not work until the key is configured.
+    ⚠ <strong>AI features are offline.</strong> No <code>GEMINI_API_KEY</code> set.
+    Get a <strong>free</strong> key at <code>aistudio.google.com</code>, then run
+    <code>export GEMINI_API_KEY='...'</code> and restart with <code>python3 app.py</code>.
+    Papers still load — plain-English summaries and report analysis need the key.
   </div>
 
   <p class="disclaimer">⚠ HealEd is for educational purposes only. Always consult your doctor before making any medical decisions.</p>
@@ -590,26 +577,18 @@
   <!-- ── Report Analyzer ───────────────────────────────────────────────────── -->
   <div class="report-section">
     <div class="report-section-title">🩺 Understand Your Medical Report</div>
-
     <div class="mock-pills">
       <span style="font-size:0.78rem;color:#555;align-self:center;margin-right:4px;">Try an example:</span>
       <button class="mock-pill" data-mock="0">Diabetes</button>
-      <button class="mock-pill" data-mock="1">Heart & BP</button>
-      <button class="mock-pill" data-mock="2">Anxiety & Depression</button>
+      <button class="mock-pill" data-mock="1">Heart &amp; BP</button>
+      <button class="mock-pill" data-mock="2">Anxiety &amp; Depression</button>
     </div>
-
-    <textarea
-      id="report-input"
-      class="report-textarea"
-      placeholder="Paste your medical report or doctor's notes here…"
-    ></textarea>
-
+    <textarea id="report-input" class="report-textarea"
+      placeholder="Paste your medical report or doctor's notes here…"></textarea>
     <button class="analyze-btn" id="analyze-report-btn" onclick="analyzeReport()">
       Explain My Report
     </button>
-
     <div class="report-error" id="report-error"></div>
-
     <div class="report-result" id="report-result">
       <div class="result-block">
         <div class="result-block-label">📋 What this means</div>
@@ -672,22 +651,10 @@
       });
     });
 
-    // ── Collect papers currently in the feed (sent as context to /api/report) ──
-    function getCurrentPapers() {
-      const papers = [];
-      document.querySelectorAll(".paper-card").forEach(card => {
-        const title = card.querySelector(".card-title")?.textContent?.trim();
-        const summary = card.querySelector(".card-summary")?.textContent?.trim();
-        if (title && summary) papers.push({ title, summary });
-      });
-      return papers.slice(0, 5); // send up to 5 papers as context
-    }
-
     // ── Report analyzer ───────────────────────────────────────────────────────
     async function analyzeReport() {
       const report = document.getElementById("report-input").value.trim();
       if (!report) return;
-
       const btn = document.getElementById("analyze-report-btn");
       const errorDiv = document.getElementById("report-error");
       btn.disabled = true;
@@ -695,31 +662,24 @@
       document.getElementById("report-result").classList.remove("visible");
       errorDiv.classList.remove("visible");
       errorDiv.textContent = "";
-
       try {
-        const papers = getCurrentPapers();
         const res = await fetch("/api/report", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ report, papers })
+          body: JSON.stringify({ report })
         });
         const data = await res.json();
-
         if (data.error) {
           errorDiv.textContent = "⚠ " + data.error;
           errorDiv.classList.add("visible");
           return;
         }
-
         document.getElementById("report-explanation").textContent =
           data.plain_explanation || "Could not generate an explanation.";
-
-        const focusList = document.getElementById("report-focus");
-        focusList.innerHTML = (data.focus_points || []).map(p => `<li>${escHtml(p)}</li>`).join("");
-
-        const qList = document.getElementById("report-questions");
-        qList.innerHTML = (data.questions_for_doctor || []).map(q => `<li>${escHtml(q)}</li>`).join("");
-
+        document.getElementById("report-focus").innerHTML =
+          (data.focus_points || []).map(p => `<li>${escHtml(p)}</li>`).join("");
+        document.getElementById("report-questions").innerHTML =
+          (data.questions_for_doctor || []).map(q => `<li>${escHtml(q)}</li>`).join("");
         document.getElementById("report-result").classList.add("visible");
       } catch (e) {
         errorDiv.textContent = "⚠ Could not reach the server. Make sure the app is running.";

@@ -1,21 +1,26 @@
 import os
 import json
 import time
+import urllib.request
+import urllib.error
 import feedparser
 from flask import Flask, render_template, request, jsonify, send_from_directory
-from openai import OpenAI
 
 app = Flask(__name__)
 
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
-if not OPENAI_API_KEY:
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+if not GEMINI_API_KEY:
     print("\n" + "="*60)
-    print("  WARNING: OPENAI_API_KEY is not set.")
-    print("  AI features (report analysis, paper summaries) will fail.")
-    print("  Run:  export OPENAI_API_KEY='sk-...'")
+    print("  WARNING: GEMINI_API_KEY is not set.")
+    print("  AI features will fall back to plain text snippets.")
+    print("  Get a FREE key at: aistudio.google.com")
+    print("  Then run: export GEMINI_API_KEY='...'")
     print("="*60 + "\n")
 
-client = OpenAI(api_key=OPENAI_API_KEY)
+GEMINI_URL = (
+    "https://generativelanguage.googleapis.com/v1beta/models/"
+    "gemini-1.5-flash:generateContent?key=" + GEMINI_API_KEY
+)
 
 CATEGORIES = {
     "q-bio.QM":   "General Medicine",
@@ -31,7 +36,6 @@ CACHE = {}
 ANALYSIS_CACHE = {}
 CACHE_TTL = 30 * 60  # 30 minutes
 
-# ── Mock patient reports (shown in the UI as examples) ───────────────────────
 MOCK_REPORTS = [
     {
         "id": "mock_1",
@@ -49,6 +53,23 @@ MOCK_REPORTS = [
         "text": "Patient: 29yo female. PHQ-9 score: 14 (moderate depression). GAD-7 score: 12 (moderate anxiety). Sleep: 4-5 hrs/night. Currently not on medication. No suicidal ideation. Seeking therapy options."
     },
 ]
+
+
+def call_gemini(prompt):
+    """Call Gemini 1.5 Flash (free tier) and return the text response."""
+    body = json.dumps({
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {"temperature": 0.4}
+    }).encode("utf-8")
+    req = urllib.request.Request(
+        GEMINI_URL,
+        data=body,
+        headers={"Content-Type": "application/json"},
+        method="POST"
+    )
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        result = json.loads(resp.read())
+    return result["candidates"][0]["content"]["parts"][0]["text"].strip()
 
 
 def fetch_arxiv_papers(category, start=0, max_results=15):
@@ -75,64 +96,64 @@ def fetch_arxiv_papers(category, start=0, max_results=15):
 
 
 def generate_patient_summaries(papers):
-    """Generate plain-English patient-friendly summaries for a batch of papers."""
+    """Generate plain-English summaries for a batch of papers using Gemini."""
     if not papers:
         return []
+    if not GEMINI_API_KEY:
+        return [" ".join(p["abstract"].split()[:50]) + "…" for p in papers]
 
     abstracts_block = "\n\n".join(
         f"[{i+1}] {p['abstract']}" for i, p in enumerate(papers)
     )
     prompt = (
-        "You are a compassionate doctor explaining medical research to patients with no medical background.\n"
-        "For each numbered abstract below, write a plain-English summary in 40 words or fewer that:\n"
-        "- Explains what the research found\n"
-        "- Uses zero medical jargon\n"
-        "- Feels reassuring and human\n\n"
-        "Return ONLY valid JSON:\n"
-        '{"summaries": ["summary 1", "summary 2", ...]}\n\n'
+        "You are explaining medical research to someone with no medical background.\n"
+        "For each numbered abstract below, write ONE sentence (max 40 words) in very simple, "
+        "everyday English that explains what the research found. No jargon at all.\n\n"
+        "Return ONLY valid JSON, no extra text:\n"
+        '{"summaries": ["sentence 1", "sentence 2", ...]}\n\n'
         f"Abstracts:\n{abstracts_block}"
     )
-
     try:
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[{"role": "user", "content": prompt}],
-            response_format={"type": "json_object"},
-        )
-        data = json.loads(response.choices[0].message.content)
+        text = call_gemini(prompt)
+        # Strip markdown code fences if present
+        text = text.strip().lstrip("```json").lstrip("```").rstrip("```").strip()
+        data = json.loads(text)
         summaries = data.get("summaries", [])
         while len(summaries) < len(papers):
             summaries.append(None)
         return summaries
     except Exception as e:
         print("Summary error:", e)
-        return [" ".join(p["abstract"].split()[:40]) + "…" for p in papers]
+        return [" ".join(p["abstract"].split()[:50]) + "…" for p in papers]
 
 
 def generate_paper_analysis(abstract):
-    """Generate treatment plan + questions for a single paper."""
-    if not OPENAI_API_KEY:
-        return {"error": "OPENAI_API_KEY is not set on the server.", "treatment_plan": "", "questions_for_doctor": []}
+    """Generate plain-English takeaways + doctor questions for a paper."""
+    if not GEMINI_API_KEY:
+        return {
+            "treatment_plan": "Get a free Gemini API key at aistudio.google.com, then set GEMINI_API_KEY to enable plain-English analysis.",
+            "questions_for_doctor": [
+                "Does this research apply to my condition?",
+                "Are there new treatments based on findings like these?",
+                "Should I make any lifestyle changes based on this?",
+            ],
+        }
 
     prompt = (
-        "You are a kind, knowledgeable doctor explaining a medical research paper to a patient.\n\n"
-        "Based on this abstract, provide:\n"
-        "1. A treatment plan in plain English — what this research suggests patients can do or expect. "
-        "Use simple everyday language. Be specific and actionable.\n"
-        "2. Three questions the patient should ask their doctor at their next appointment.\n\n"
-        "Return ONLY valid JSON:\n"
-        '{"treatment_plan": "2-3 sentences in plain English", '
-        '"questions_for_doctor": ["question 1", "question 2", "question 3"]}\n\n'
+        "You are a kind doctor explaining a research paper to a patient in plain English.\n\n"
+        "Based on this abstract:\n"
+        "1. In 2-3 simple sentences, explain what this research means for everyday people — "
+        "what they can do, expect, or know. No medical jargon.\n"
+        "2. List 3 questions the patient should ask their doctor.\n\n"
+        "Return ONLY valid JSON, no extra text:\n"
+        '{"treatment_plan": "2-3 plain sentences", '
+        '"questions_for_doctor": ["q1", "q2", "q3"]}\n\n'
         f"Abstract:\n{abstract}"
     )
-
     try:
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[{"role": "user", "content": prompt}],
-            response_format={"type": "json_object"},
-        )
-        data = json.loads(response.choices[0].message.content)
+        text = call_gemini(prompt)
+        text = text.strip().lstrip("```json").lstrip("```").rstrip("```").strip()
+        data = json.loads(text)
         return {
             "treatment_plan": data.get("treatment_plan", ""),
             "questions_for_doctor": data.get("questions_for_doctor", [])[:3],
@@ -143,55 +164,30 @@ def generate_paper_analysis(abstract):
 
 
 def analyze_patient_report(report_text, papers=None):
-    """Analyze a user-submitted medical report in plain English.
-
-    If `papers` (list of {title, summary}) are provided, the AI uses them
-    as supporting research context to give more grounded advice.
-    """
-    if not OPENAI_API_KEY:
-        return {"error": "OPENAI_API_KEY is not set on the server.",
-                "plain_explanation": "", "focus_points": [], "questions_for_doctor": []}
-
-    # Build optional research context block from currently loaded papers
-    research_context = ""
-    if papers:
-        snippets = []
-        for p in papers[:5]:
-            title = (p.get("title") or "").strip()
-            summary = (p.get("summary") or p.get("abstract") or "").strip()
-            if title and summary:
-                snippets.append(f"• {title}: {summary[:180]}")
-        if snippets:
-            research_context = (
-                "\n\nFor additional context, here are recent medical research findings "
-                "that may be relevant to this patient's situation:\n"
-                + "\n".join(snippets)
-                + "\n\nIf any of these findings relate to the patient's conditions, "
-                "briefly mention them in plain English in your explanation."
-            )
+    """Explain a medical report in plain English using Gemini."""
+    if not GEMINI_API_KEY:
+        return {
+            "error": "Get a free Gemini API key at aistudio.google.com and set GEMINI_API_KEY.",
+            "plain_explanation": "", "focus_points": [], "questions_for_doctor": []
+        }
 
     prompt = (
         "You are a compassionate doctor helping a patient understand their medical report.\n\n"
-        "Read this medical report and explain it as if talking to the patient directly:\n"
-        "1. What does this report say in plain English? (2-3 warm, clear sentences)\n"
-        "2. Three things the patient should focus on or be aware of.\n"
-        "3. Three specific questions they should ask their doctor.\n\n"
-        "Be warm, clear, and avoid all medical jargon. Do NOT diagnose — only explain and empower.\n\n"
-        "Return ONLY valid JSON:\n"
+        "Read this report and explain it directly to the patient:\n"
+        "1. What does this say in plain English? (2-3 warm, simple sentences — no jargon)\n"
+        "2. Three things the patient should focus on or watch out for.\n"
+        "3. Three questions to ask their doctor.\n\n"
+        "Do NOT diagnose. Be warm and clear.\n\n"
+        "Return ONLY valid JSON, no extra text:\n"
         '{"plain_explanation": "2-3 sentences", '
-        '"focus_points": ["point 1", "point 2", "point 3"], '
-        '"questions_for_doctor": ["question 1", "question 2", "question 3"]}\n\n'
+        '"focus_points": ["p1", "p2", "p3"], '
+        '"questions_for_doctor": ["q1", "q2", "q3"]}\n\n'
         f"Medical Report:\n{report_text}"
-        f"{research_context}"
     )
-
     try:
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[{"role": "user", "content": prompt}],
-            response_format={"type": "json_object"},
-        )
-        data = json.loads(response.choices[0].message.content)
+        text = call_gemini(prompt)
+        text = text.strip().lstrip("```json").lstrip("```").rstrip("```").strip()
+        data = json.loads(text)
         return {
             "plain_explanation": data.get("plain_explanation", ""),
             "focus_points": data.get("focus_points", [])[:3],
@@ -214,8 +210,7 @@ def index():
 
 @app.route("/api/health")
 def api_health():
-    """Quick health check — tells the frontend whether the API key is configured."""
-    return jsonify({"openai_configured": bool(OPENAI_API_KEY)})
+    return jsonify({"openai_configured": bool(GEMINI_API_KEY)})
 
 
 @app.route("/api/feed")
@@ -239,7 +234,7 @@ def api_feed():
 
     for i, paper in enumerate(papers):
         summary = summaries[i] if i < len(summaries) and summaries[i] else \
-            " ".join(paper["abstract"].split()[:40]) + "…"
+            " ".join(paper["abstract"].split()[:50]) + "…"
         paper["summary"] = summary
         paper["category_label"] = CATEGORIES.get(category, category)
 
@@ -249,7 +244,6 @@ def api_feed():
 
 @app.route("/api/analyze", methods=["POST"])
 def api_analyze():
-    """Treatment plan + doctor questions for a single paper, fetched on expand."""
     body = request.get_json(silent=True) or {}
     paper_id = body.get("id", "").strip()
     abstract = body.get("abstract", "").strip()
@@ -271,10 +265,9 @@ def api_analyze():
 
 @app.route("/api/report", methods=["POST"])
 def api_report():
-    """Analyze a patient-submitted medical report, optionally using loaded research papers."""
     body = request.get_json(silent=True) or {}
     report_text = body.get("report", "").strip()
-    papers = body.get("papers", [])  # list of {title, summary} from the current feed
+    papers = body.get("papers", [])
 
     if not report_text or len(report_text) < 20:
         return jsonify({"error": "Please enter a valid medical report (at least 20 characters)."}), 400
@@ -290,8 +283,7 @@ def api_mock_reports():
 
 @app.route("/sw.js")
 def service_worker():
-    return send_from_directory("static", "sw.js",
-                               mimetype="application/javascript")
+    return send_from_directory("static", "sw.js", mimetype="application/javascript")
 
 
 if __name__ == "__main__":
