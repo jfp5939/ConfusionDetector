@@ -1,4 +1,4 @@
-const CACHE_NAME = "paperbrief-v1";
+const CACHE_NAME = "healed-v1";
 
 const APP_SHELL = [
   "/",

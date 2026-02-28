@@ -1,11 +1,11 @@
 {
-  "name": "PaperBrief",
-  "short_name": "PaperBrief",
-  "description": "Recent arXiv papers, explained in plain English.",
+  "name": "HealEd",
+  "short_name": "HealEd",
+  "description": "Medical research, explained for real people.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0f0f0f",
-  "theme_color": "#6c63ff",
+  "background_color": "#0d1117",
+  "theme_color": "#34d399",
   "orientation": "portrait-primary",
   "icons": [
     {

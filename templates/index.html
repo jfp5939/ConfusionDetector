@@ -3,7 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="theme-color" content="#34d399"/>
   <title>HealEd — Medical Research, Plain English</title>
+  <link rel="manifest" href="/static/manifest.json"/>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -524,6 +526,49 @@
       margin-bottom: 20px;
       line-height: 1.5;
     }
+
+    /* ── API key banner ─────────────────────────────────────────────────────── */
+    .api-banner {
+      display: none;
+      width: 100%;
+      max-width: 700px;
+      background: #1a1108;
+      border: 1px solid #f0a04066;
+      border-left: 3px solid #f0a040;
+      border-radius: 10px;
+      padding: 12px 16px;
+      margin-bottom: 20px;
+      font-size: 0.85rem;
+      color: #f0c080;
+      line-height: 1.5;
+    }
+
+    .api-banner.visible { display: block; }
+
+    .api-banner code {
+      background: #2a1f08;
+      border-radius: 4px;
+      padding: 1px 6px;
+      font-family: monospace;
+      font-size: 0.82rem;
+      color: #ffd080;
+    }
+
+    /* ── Inline report error ────────────────────────────────────────────────── */
+    .report-error {
+      display: none;
+      margin-top: 12px;
+      background: #1a1108;
+      border: 1px solid #f0504066;
+      border-left: 3px solid #f05040;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 0.85rem;
+      color: #f08070;
+      line-height: 1.5;
+    }
+
+    .report-error.visible { display: block; }
   </style>
 </head>
 <body>
@@ -532,6 +577,13 @@
     <h1>Heal<span>Ed</span></h1>
     <p class="tagline">Medical research, explained for real people.</p>
   </header>
+
+  <div class="api-banner" id="api-banner">
+    ⚠ <strong>AI features are offline.</strong> The server's <code>OPENAI_API_KEY</code> is not set.
+    Run <code>export OPENAI_API_KEY='sk-...'</code> in your terminal before starting the app,
+    then restart with <code>python3 app.py</code>. Research papers will still load, but
+    report analysis and treatment plans will not work until the key is configured.
+  </div>
 
   <p class="disclaimer">⚠ HealEd is for educational purposes only. Always consult your doctor before making any medical decisions.</p>
 
@@ -555,6 +607,8 @@
     <button class="analyze-btn" id="analyze-report-btn" onclick="analyzeReport()">
       Explain My Report
     </button>
+
+    <div class="report-error" id="report-error"></div>
 
     <div class="report-result" id="report-result">
       <div class="result-block">
@@ -618,25 +672,47 @@
       });
     });
 
+    // ── Collect papers currently in the feed (sent as context to /api/report) ──
+    function getCurrentPapers() {
+      const papers = [];
+      document.querySelectorAll(".paper-card").forEach(card => {
+        const title = card.querySelector(".card-title")?.textContent?.trim();
+        const summary = card.querySelector(".card-summary")?.textContent?.trim();
+        if (title && summary) papers.push({ title, summary });
+      });
+      return papers.slice(0, 5); // send up to 5 papers as context
+    }
+
     // ── Report analyzer ───────────────────────────────────────────────────────
     async function analyzeReport() {
       const report = document.getElementById("report-input").value.trim();
       if (!report) return;
 
       const btn = document.getElementById("analyze-report-btn");
+      const errorDiv = document.getElementById("report-error");
       btn.disabled = true;
       btn.textContent = "Analyzing…";
       document.getElementById("report-result").classList.remove("visible");
+      errorDiv.classList.remove("visible");
+      errorDiv.textContent = "";
 
       try {
+        const papers = getCurrentPapers();
         const res = await fetch("/api/report", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ report })
+          body: JSON.stringify({ report, papers })
         });
         const data = await res.json();
 
-        document.getElementById("report-explanation").textContent = data.plain_explanation || "Could not generate explanation.";
+        if (data.error) {
+          errorDiv.textContent = "⚠ " + data.error;
+          errorDiv.classList.add("visible");
+          return;
+        }
+
+        document.getElementById("report-explanation").textContent =
+          data.plain_explanation || "Could not generate an explanation.";
 
         const focusList = document.getElementById("report-focus");
         focusList.innerHTML = (data.focus_points || []).map(p => `<li>${escHtml(p)}</li>`).join("");
@@ -646,7 +722,8 @@
 
         document.getElementById("report-result").classList.add("visible");
       } catch (e) {
-        alert("Failed to analyze report. Please try again.");
+        errorDiv.textContent = "⚠ Could not reach the server. Make sure the app is running.";
+        errorDiv.classList.add("visible");
       } finally {
         btn.disabled = false;
         btn.textContent = "Explain My Report";
@@ -786,6 +863,12 @@
             })
             .then(r => r.json())
             .then(data => {
+              if (data.error) {
+                treatmentSection.innerHTML = `
+                  <div class="treatment-heading">💊 Treatment Plan (Plain English)</div>
+                  <div class="treatment-text" style="color:#f08070">⚠ ${escHtml(data.error)}</div>`;
+                return;
+              }
               if (data.treatment_plan) {
                 treatmentSection.innerHTML = `
                   <div class="treatment-heading">💊 Treatment Plan (Plain English)</div>
@@ -805,7 +888,7 @@
             .catch(() => {
               treatmentSection.innerHTML = `
                 <div class="treatment-heading">💊 Treatment Plan (Plain English)</div>
-                <div class="treatment-text" style="color:#555">Failed to load — try clicking again.</div>`;
+                <div class="treatment-text" style="color:#555">Failed to load — is the server running?</div>`;
             });
           }
         });
@@ -898,8 +981,20 @@
       } else if (noResults) noResults.style.display = "none";
     });
 
+    // ── Health check — show banner if OPENAI_API_KEY is missing ──────────────
+    fetch("/api/health").then(r => r.json()).then(data => {
+      if (!data.openai_configured) {
+        document.getElementById("api-banner").classList.add("visible");
+      }
+    }).catch(() => {});
+
     // ── Initial load ──────────────────────────────────────────────────────────
     loadFeed(currentCategory, 0, false);
+
+    // ── Service worker ────────────────────────────────────────────────────────
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch(() => {});
+    }
   </script>
 </body>
 </html>

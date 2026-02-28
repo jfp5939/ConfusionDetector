@@ -2,11 +2,20 @@ import os
 import json
 import time
 import feedparser
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, send_from_directory
 from openai import OpenAI
 
 app = Flask(__name__)
-client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
+if not OPENAI_API_KEY:
+    print("\n" + "="*60)
+    print("  WARNING: OPENAI_API_KEY is not set.")
+    print("  AI features (report analysis, paper summaries) will fail.")
+    print("  Run:  export OPENAI_API_KEY='sk-...'")
+    print("="*60 + "\n")
+
+client = OpenAI(api_key=OPENAI_API_KEY)
 
 CATEGORIES = {
     "q-bio.QM":   "General Medicine",
@@ -102,6 +111,9 @@ def generate_patient_summaries(papers):
 
 def generate_paper_analysis(abstract):
     """Generate treatment plan + questions for a single paper."""
+    if not OPENAI_API_KEY:
+        return {"error": "OPENAI_API_KEY is not set on the server.", "treatment_plan": "", "questions_for_doctor": []}
+
     prompt = (
         "You are a kind, knowledgeable doctor explaining a medical research paper to a patient.\n\n"
         "Based on this abstract, provide:\n"
@@ -127,16 +139,42 @@ def generate_paper_analysis(abstract):
         }
     except Exception as e:
         print("Analysis error:", e)
-        return {"treatment_plan": "", "questions_for_doctor": []}
+        return {"error": str(e), "treatment_plan": "", "questions_for_doctor": []}
 
 
-def analyze_patient_report(report_text):
-    """Analyze a user-submitted medical report in plain English."""
+def analyze_patient_report(report_text, papers=None):
+    """Analyze a user-submitted medical report in plain English.
+
+    If `papers` (list of {title, summary}) are provided, the AI uses them
+    as supporting research context to give more grounded advice.
+    """
+    if not OPENAI_API_KEY:
+        return {"error": "OPENAI_API_KEY is not set on the server.",
+                "plain_explanation": "", "focus_points": [], "questions_for_doctor": []}
+
+    # Build optional research context block from currently loaded papers
+    research_context = ""
+    if papers:
+        snippets = []
+        for p in papers[:5]:
+            title = (p.get("title") or "").strip()
+            summary = (p.get("summary") or p.get("abstract") or "").strip()
+            if title and summary:
+                snippets.append(f"• {title}: {summary[:180]}")
+        if snippets:
+            research_context = (
+                "\n\nFor additional context, here are recent medical research findings "
+                "that may be relevant to this patient's situation:\n"
+                + "\n".join(snippets)
+                + "\n\nIf any of these findings relate to the patient's conditions, "
+                "briefly mention them in plain English in your explanation."
+            )
+
     prompt = (
         "You are a compassionate doctor helping a patient understand their medical report.\n\n"
         "Read this medical report and explain it as if talking to the patient directly:\n"
-        "1. What does this report say in plain English?\n"
-        "2. What should they focus on or be aware of?\n"
+        "1. What does this report say in plain English? (2-3 warm, clear sentences)\n"
+        "2. Three things the patient should focus on or be aware of.\n"
         "3. Three specific questions they should ask their doctor.\n\n"
         "Be warm, clear, and avoid all medical jargon. Do NOT diagnose — only explain and empower.\n\n"
         "Return ONLY valid JSON:\n"
@@ -144,6 +182,7 @@ def analyze_patient_report(report_text):
         '"focus_points": ["point 1", "point 2", "point 3"], '
         '"questions_for_doctor": ["question 1", "question 2", "question 3"]}\n\n'
         f"Medical Report:\n{report_text}"
+        f"{research_context}"
     )
 
     try:
@@ -160,7 +199,7 @@ def analyze_patient_report(report_text):
         }
     except Exception as e:
         print("Report analysis error:", e)
-        return {"plain_explanation": "", "focus_points": [], "questions_for_doctor": []}
+        return {"error": str(e), "plain_explanation": "", "focus_points": [], "questions_for_doctor": []}
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────
@@ -171,6 +210,12 @@ def index():
                            categories=CATEGORIES,
                            default_categories=DEFAULT_CATEGORIES,
                            mock_reports=MOCK_REPORTS)
+
+
+@app.route("/api/health")
+def api_health():
+    """Quick health check — tells the frontend whether the API key is configured."""
+    return jsonify({"openai_configured": bool(OPENAI_API_KEY)})
 
 
 @app.route("/api/feed")
@@ -219,26 +264,34 @@ def api_analyze():
             return jsonify(entry["data"])
 
     result = generate_paper_analysis(abstract)
-    ANALYSIS_CACHE[paper_id] = {"data": result, "fetched_at": now}
+    if "error" not in result:
+        ANALYSIS_CACHE[paper_id] = {"data": result, "fetched_at": now}
     return jsonify(result)
 
 
 @app.route("/api/report", methods=["POST"])
 def api_report():
-    """Analyze a patient-submitted medical report."""
+    """Analyze a patient-submitted medical report, optionally using loaded research papers."""
     body = request.get_json(silent=True) or {}
     report_text = body.get("report", "").strip()
+    papers = body.get("papers", [])  # list of {title, summary} from the current feed
 
     if not report_text or len(report_text) < 20:
-        return jsonify({"error": "Please enter a valid medical report."}), 400
+        return jsonify({"error": "Please enter a valid medical report (at least 20 characters)."}), 400
 
-    result = analyze_patient_report(report_text)
+    result = analyze_patient_report(report_text, papers)
     return jsonify(result)
 
 
 @app.route("/api/mock_reports")
 def api_mock_reports():
     return jsonify({"reports": MOCK_REPORTS})
+
+
+@app.route("/sw.js")
+def service_worker():
+    return send_from_directory("static", "sw.js",
+                               mimetype="application/javascript")
 
 
 if __name__ == "__main__":
